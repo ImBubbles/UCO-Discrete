@@ -1,22 +1,16 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <map>
 using namespace std;
 
-// 1 true
-// 0 false
-//yo
-
-
-
-int solveEq(std::string& equation) {
-    std::cout << equation << std::endl;
+std::string solveEq(std::string equation) {
     // parantheses
-    int openPos = -1;
-    for(int i = 0; i < equation.length(); i++) {
+    std::size_t openPos = -1;
+    for(std::size_t i = 0; i < equation.length(); i++) {
         const char& c = equation[i];
         if(openPos == -1 && c == ')') {
-            return -1;
+            return "-1";
         }
         if(c == '(') {
             openPos = i;
@@ -24,15 +18,14 @@ int solveEq(std::string& equation) {
         }
         if(c == ')') {
             std::string solve = equation.substr(openPos + 1, i - openPos - 1);
-            int solved = solveEq(solve);
-            std::string result = equation.replace(openPos, i - openPos + 1, std::to_string(solved));
-            std::cout << "result " << result << std::endl;
+            std::string solved = solveEq(solve);
+            std::string result = equation.replace(openPos, i - openPos + 1, solved);
             return solveEq(result);
-            return 1;
+            return "1";
         }
     }
     // Negations
-    for(int i = 0; i < equation.length(); i++) {
+    for(std::size_t i = 0; i < equation.length(); i++) {
         const char& c = equation[i];
         if(c == '~') {
             const char& var = equation[i + 1];
@@ -40,43 +33,57 @@ int solveEq(std::string& equation) {
             return solveEq(equation.replace(i, 2, negated));
         }
     }
-    for(int i = 1; i < equation.length(); i++) {
-        // Disconjunction V
+    // Conjunction ^
+    for(std::size_t i = 1; i < equation.length() - 1; i++) {
+        const char& c = equation[i];
+        if(c == '*') {
+            int var1 = equation[i - 1] - 48;
+            int var2 = equation[i + 1] - 48;
+            equation.replace(i-1, 3, var1 >= 1 && var2 >= 1 ? "1" : "0");
+            return solveEq(equation);
+        }
+    }
+    // Disconjunction V
+    for(std::size_t i = 1; i < equation.length() - 1; i++) {
         const char& c = equation[i];
         if(c == '+') {
             int var1 = equation[i - 1] - 48;
             int var2 = equation[i + 1] - 48;
             equation.replace(i-1, 3, var1 >= 1 || var2 >= 1 ? "1" : "0");
-            std::cout << "post disconjunction : " << equation << std::endl;
             return solveEq(equation);
         }
-        // Conjunction ^
-        if(c == '*') {
-            int var1 = equation[i - 1] - 48;
-            int var2 = equation[i + 1] - 48;
-            equation.replace(i-1, 3, var1 >= 1 && var2 >= 1 ? "1" : "0");
-            std::cout << "post conjunction : " << equation << std::endl;
-            return solveEq(equation);
-        }
-        if(i > 2) {
-            if(c == '<') {
-                int var1 = equation[i - 1] - 48;
-                int var2 = equation[i + 1] - 48;
-                equation.replace(i-1, 3, var1 >= 1 && var2 >= 1 ? "1" : "0");
-                std::cout << "post conjunction : " << equation << std::endl;
+    }
+    // biconditional <-> (if both are the same)
+    for(std::size_t i = 2; i < equation.length() - 1; i++) {
+        const char& l = equation[i-1];
+        const char& c = equation[i];
+        const char& r = equation[i+1];
+        if(l == '<' && c == '-' && r == '>') {
+                int var1 = equation[i - 2] - 48;
+                int var2 = equation[i + 2] - 48;
+                equation.replace(i-2, 5, var1 == var2 ? "1" : "0");
                 return solveEq(equation);
-            }
+        }
+    }
+    // conditional -> (!p || q)
+    for(std::size_t i = 2; i < equation.length() - 1; i++) {
+        const char& l = equation[i-1];
+        const char& c = equation[i];
+        if(l == '-' && c == '>') {
+                int var1 = equation[i - 2] - 48;
+                int var2 = equation[i + 1] - 48;
+                equation.replace(i-2, 4, !(var1 == 1) || (var2 == 1) ? "1" : "0");
+                return solveEq(equation);
         }
     }
 
-    std::cout << "final: " << equation << std::endl;
+    return equation;
 
-    return 1;
 }
 
 std::string cleanWhitespaces(const std::string& str) {
     std::string result;
-    for(int i = 0; i < str.length(); i++) {
+    for(std::size_t i = 0; i < str.length(); i++) {
         const char& c = str[i];
         if(c != ' ') {
             result += c;
@@ -87,7 +94,7 @@ std::string cleanWhitespaces(const std::string& str) {
 
 std::string fillVariables(const std::string& str, std::map<char, std::string> map) {
     std::string result = str;
-    for(int i = 0; i < result.length(); i++) {
+    for(std::size_t i = 0; i < result.length(); i++) {
         char& c = result[i];
         if(map.find(c) != map.end()) {
             result.replace(i, 1, map.at(c));
@@ -95,53 +102,48 @@ std::string fillVariables(const std::string& str, std::map<char, std::string> ma
     }
     return result;
 }
-/*
-void printTable(bool (*expr)(int, int)){
-    for (int p = 0; p<= 1; p++){
-        for(int q = 0; q<= 1; q++){
-            bool result = expr(p,q);
-            cout << "p: " << p << " q: " << q << " result: " << result << endl;
-            
-            if(result == 1){
-                totCount++;
+
+void tryEquation(const std::string& equation, std::vector<char> variables) {
+    const std::string cleanedEquation = cleanWhitespaces(equation);
+    const std::size_t permutations = 1ULL << variables.size();
+
+    std::cout << "Equation: " << equation << std::endl;
+
+    int truthCount = 0;
+
+    for(std::size_t permutation = 0; permutation < permutations; permutation++) {
+        std::map<char, std::string> values;
+        for(std::size_t i = 0; i < variables.size(); i++) {
+            const char& key = variables[i];
+            const char &value = ((permutation >> i) & 1ULL) ? '1' : '0';
+            values[key] = value;
+            if(i != variables.size() - 1) {
+                std::cout << key << ": " << value << ", ";
+            } else {
+                std::cout << key << ": " << value;
             }
-            if (result == 0){
-                contCount++;
-            }
-            
+        }
+        std::cout << std::endl;
+        std::string solved = solveEq(fillVariables(cleanedEquation, values));
+        std::cout << "Result: " << solved << std::endl;
+        if(solved == "1") {
+            truthCount++;
         }
     }
+    std::cout << "Truth cases: " << truthCount << "/" << permutations << std::endl << std::endl;
 }
-*/
+
 int main() {
-    
 
     const std::string eq1 = "(p + q) + (~p * ~q)";
     const std::string eq2 = "(p <-> q) -> (~p <-> ~q)";
     const std::string eq3 = "(p + q) * (~p + r) -> (p * r)";
     const std::string eq4 = "((p -> r) -> q) <-> (p -> (q -> r))";
+    tryEquation(eq1, {'p', 'q'});
+    tryEquation(eq2, {'p', 'q'});
+    tryEquation(eq3, {'p', 'q'});
+    tryEquation(eq4, {'p', 'q', 'r'});
 
-
-    //#1 (p || q) && (!p && !q)
-    //#2!(p == q) || (!p == !q);
-    //#3 !((p || q) && (!p || r)) || (p && r)
-    //#4 (!(!p || r) || q) == (!p || (!q || r))
-    
-    //printTable(eq1s);
-    /* 
-    if (totCount == 4){
-        cout << "The equation is a tautology" << endl;
-    } 
-    if (contCount  == 4){
-        cout << "The equation is a contradiction" << endl;
-    }else if(totCount > 0 && contCount > 0){
-        cout << "The equation is contingent" << endl;
-    }
-    */
-
-    std::string test = fillVariables(cleanWhitespaces(eq1), std::map<char, std::string>{{'p', "0"}, {'q', "0"}});
-    solveEq(test);
-    
     return 0;
 
 }
