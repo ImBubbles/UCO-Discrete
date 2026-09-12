@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "util/UtilString.h"
 using namespace std;
 
 std::string solveEq(std::string equation) {
@@ -107,7 +108,15 @@ void tryEquation(const std::string& equation, std::vector<char> variables) {
     const std::string cleanedEquation = cleanWhitespaces(equation);
     const std::size_t permutations = 1ULL << variables.size();
 
-    std::cout << "Equation: " << equation << std::endl;
+    std::map<std::string, std::vector<std::string>> tableColumns;
+    std::vector<std::string> columnOrder;
+    for(char variable : variables) {
+        std::string variableName(1, variable);
+        tableColumns[variableName] = {};
+        columnOrder.push_back(variableName);
+    }
+    tableColumns[cleanedEquation] = {};
+    columnOrder.push_back(cleanedEquation);
 
     int truthCount = 0;
 
@@ -117,24 +126,20 @@ void tryEquation(const std::string& equation, std::vector<char> variables) {
             const char& key = variables[i];
             const char &value = ((permutation >> i) & 1ULL) ? '1' : '0';
             values[key] = value;
-            if(i != variables.size() - 1) {
-                std::cout << key << ": " << value << ", ";
-            } else {
-                std::cout << key << ": " << value;
-            }
+            tableColumns[std::string(1, key)].push_back(std::string(1, value));
         }
-        std::cout << std::endl;
         std::string solved = solveEq(fillVariables(cleanedEquation, values));
-        std::cout << "Result: " << solved << std::endl;
+        tableColumns[cleanedEquation].push_back(solved);
         if(solved == "1") {
             truthCount++;
         }
     }
+    UtilString::Table table(tableColumns, columnOrder);
+    table.print();
     std::cout << "Truth cases: " << truthCount << "/" << permutations << std::endl << std::endl;
 }
 
 int main() {
-
     const std::string eq1 = "(p + q) + (~p * ~q)";
     const std::string eq2 = "(p <-> q) -> (~p <-> ~q)";
     const std::string eq3 = "(p + q) * (~p + r) -> (p * r)";
@@ -143,7 +148,5 @@ int main() {
     tryEquation(eq2, {'p', 'q'});
     tryEquation(eq3, {'p', 'q'});
     tryEquation(eq4, {'p', 'q', 'r'});
-
     return 0;
-
 }
